@@ -2,11 +2,10 @@
 url = "https://pypi.org/simple"
 verify_ssl = true
 name = "pypi"
-
-[[source]]
-url = "https://pypi.rasa.com/simple"
-verify_ssl = true
-name = "rasa"
+# [[source]]
+# url = "https://pypi.rasa.com/simple"
+# verify_ssl = true
+# name = "rasa"
 
 [packages]
 paddlepaddle = "==2.0.2"
@@ -14,9 +13,10 @@ paddlenlp = "==2.0.0rc20"
 rasa = {version = "==2.6.0", extras = ["transformers"]}
 transformers = {version = "==2.11.0", extras = ["tf-cpu", "torch"]}
 rasa-chinese = "==2.2.0"
-rasa-x = {version = "==0.39.3", index = "rasa"}
+# rasa-x = {version = "==0.39.3", index = "rasa"}
 wechaty = "==0.8.3"
-wechatpy = "==1.8.15"
+wechatpy = "==2.0.0a7"
+pendulum = "==2.1.2"
 
 [dev-packages]
 

@@ -12,3 +12,7 @@ __pycache__
 
 *.db*
 .env*
+
+/data
+/config.yml
+/domain.yml

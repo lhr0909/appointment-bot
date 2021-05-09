@@ -7,6 +7,8 @@ session_config:
 intents:
 - greet:
     use_entities: []
+- inquire_appointment_item:
+    use_entities: []
 - book:
     use_entities: []
 - info:
@@ -25,10 +27,20 @@ slots:
     initial_value: null
     auto_fill: false
     influence_conversation: false
+  duration_announced:
+    type: rasa.shared.core.slots.BooleanSlot
+    initial_value: false
+    auto_fill: false
+    influence_conversation: false
   time:
     type: rasa.shared.core.slots.AnySlot
     initial_value: null
-    auto_fill: true
+    auto_fill: false
+    influence_conversation: false
+  suggested_times:
+    type: rasa.shared.core.slots.AnySlot
+    initial_value: null
+    auto_fill: false
     influence_conversation: false
   appointment_time:
     type: rasa.shared.core.slots.AnySlot
@@ -40,7 +52,7 @@ responses:
   - text: 好的。
   - text: 嗯嗯～
   utter_greet:
-  - text: 您好，我是和由美Yuki老师的智能助理小美，我可以帮您预约项目和时间哦~
+  - text: 您好，我是智能助理小美，我可以帮您预约项目和时间哦~
   utter_duration:
   - text: 项目大概需要{duration_hour}小时。
   utter_ask_appointment_item:

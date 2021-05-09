@@ -15,11 +15,10 @@ RUN  pip install "pipenv==$PIPENV_VERSION"
 
 # Only Copy needed file to docker layer
 WORKDIR /opt/rasa-bot
-COPY poetry.lock pyproject.toml /opt/rasa-bot/
+COPY Pipfile /opt/rasa-bot/
 
 # Initialize project
-RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+RUN pipenv install --skip-lock
 
 # Add other files to a project
 COPY . /opt/rasa-bot/

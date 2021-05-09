@@ -1,10 +1,14 @@
 version: "2.0"
 stories:
-- story: Greet Path
+- story: 问候
   steps:
   - intent: greet
   - action: utter_greet
-- story: Book Appointment
+- story: 咨询项目
+  steps:
+  - intent: inquire_appointment_item
+  - action: utter_suggest_appointment_item
+- story: 预约
   steps:
   - intent: book
   - action: book_form

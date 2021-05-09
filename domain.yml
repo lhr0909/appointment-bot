@@ -1,0 +1,74 @@
+version: '2.0'
+config:
+  store_entities_as_slots: true
+session_config:
+  session_expiration_time: 60
+  carry_over_slots_to_new_session: true
+intents:
+- greet:
+    use_entities: []
+- book:
+    use_entities: []
+- info:
+    use_entities: []
+entities:
+- appointment_item
+- time
+slots:
+  appointment_item:
+    type: rasa.shared.core.slots.TextSlot
+    initial_value: null
+    auto_fill: true
+    influence_conversation: false
+  duration_hour:
+    type: rasa.shared.core.slots.FloatSlot
+    initial_value: null
+    auto_fill: false
+    influence_conversation: false
+  time:
+    type: rasa.shared.core.slots.AnySlot
+    initial_value: null
+    auto_fill: true
+    influence_conversation: false
+  appointment_time:
+    type: rasa.shared.core.slots.AnySlot
+    initial_value: null
+    auto_fill: false
+    influence_conversation: false
+responses:
+  utter_acknowledge:
+  - text: 好的。
+  - text: 嗯嗯～
+  utter_greet:
+  - text: 您好，我是和由美Yuki老师的智能助理小美，我可以帮您预约项目和时间哦~
+  utter_duration:
+  - text: 项目大概需要{duration_hour}小时。
+  utter_ask_appointment_item:
+  - text: 请问这次您想做什么项目呢？
+  utter_suggest_appointment_item:
+  - text: 我们有染发和理发两个项目。请问想做哪一个呢？
+  utter_ask_appointment_time:
+  - text: 请问您什么时候方便过来呢？
+  - text: 请问您想什么时候过来呢？
+  - text: 请问您想什么时候过来店里呢？
+  utter_ask_accurate_time:
+  - text: {appointment_time}，可以预约的时间有：
+  - text: {appointment_time}的话，目前可以预约的时间有：
+  utter_ask_accurate_time_of_day:
+  - text: 具体几点呢？
+  utter_suggest_time_this_week:
+  - text: 本周其余可以预约的时间有：
+  utter_ask_if_suggest_time_ok:
+  - text: 您看这些时间可以吗？
+  utter_confirm_appointment_time:
+  - text: 好的，那为您预约：{appointment_time}的{appointment_item}服务，可以吗？
+  utter_finalize_appointment_time:
+  - text: 好的，小美已经为您成功预约：{appointment_time}的{appointment_item}服务，请介时准时到店哦~
+  utter_complete:
+  - text: 如需修改或取消预约服务，请提前至少1天通知我们哦~小美很高兴为您服务，祝您生活愉快~
+actions:
+- validate_book_form
+- action_ask_appointment_time
+forms:
+  book_form: {}
+e2e_actions: []

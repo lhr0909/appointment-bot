@@ -1,0 +1,12 @@
+version: "2.0"
+rules:
+- rule: Submit form
+  condition:
+  - active_loop: book_form
+  steps:
+  - action: book_form
+  - active_loop: null
+  - slot_was_set:
+    - requested_slot: null
+  - action: utter_finalize_appointment_time
+  - action: utter_complete

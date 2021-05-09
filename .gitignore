@@ -11,6 +11,3 @@ __pycache__
 /browsercache
 
 *.db*
-
-/data
-/*.yml

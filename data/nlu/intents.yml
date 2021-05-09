@@ -1,0 +1,39 @@
+version: "2.0"
+nlu:
+- intent: affirm
+  examples: |
+    - 是
+    - 是的
+    - 对的
+    - 好的
+    - 没错
+    - 可以啊
+    - 好啊
+- intent: deny
+  examples: |
+    - 不
+    - 不是
+    - 没有
+    - 不对
+    - 不要
+- intent: greet
+  examples: |
+    - 你好
+    - 你好啊
+- intent: book
+  examples: |
+    - 我想预约
+    - 预约
+    - 想预约[剪头发]{"entity": "appointment_item", "value": "理发"}
+    - 想约[染头发]{"entity": "appointment_item", "value": "染发"}
+    - 我想约下周四[剪一下头发]{"entity": "appointment_item", "value": "理发"}
+    - 我想下周末过来[把头发重新染了]{"entity": "appointment_item", "value": "染发"}
+- intent: info
+  examples: |
+    - 下周六上午
+    - 11点
+    - 下午3点吧
+    - 明天下午可以吗
+    - 我想后天早上过来
+    - 下周二有时间吗
+    - 我只有明天上午有空

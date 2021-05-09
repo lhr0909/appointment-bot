@@ -11,4 +11,4 @@ __pycache__
 /browsercache
 
 *.db*
-.env.local
+.env*

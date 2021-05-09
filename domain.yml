@@ -52,8 +52,8 @@ responses:
   - text: 请问您想什么时候过来呢？
   - text: 请问您想什么时候过来店里呢？
   utter_ask_accurate_time:
-  - text: {appointment_time}，可以预约的时间有：
-  - text: {appointment_time}的话，目前可以预约的时间有：
+  - text: "{appointment_time}，可以预约的时间有："
+  - text: "{appointment_time}的话，目前可以预约的时间有："
   utter_ask_accurate_time_of_day:
   - text: 具体几点呢？
   utter_suggest_time_this_week:

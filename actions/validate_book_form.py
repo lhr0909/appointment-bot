@@ -5,7 +5,7 @@ from rasa_sdk import Tracker, FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
 from rasa_sdk.types import DomainDict
 
-from .calendar import get_available_time_slots, book_appointment
+from .calendar import get_available_time_slots, get_available_time_slots_for_day, book_appointment
 
 logger = logging.getLogger(__name__)
 
@@ -62,9 +62,19 @@ class ValidateBookForm(FormValidationAction):
             if time_slot is None:
                 return {"appointment_time": slot_value}
             else:
-                time_from = time_slot.get('from', {}).get('value')
-                time_to = time_slot.get('to', {}).get('value')
-                time_slots = get_available_time_slots(time_from, time_to, duration_hour_slot)
+                time_type = time_slot.get("type")
+                time_granularity = time_slot.get("grain")
+                if time_type == 'value':
+                    if time_granularity != 'day':
+                        # TODO: need to guide user to narrow down more
+                        pass
+                    else:
+                        time_from = time_slot.get('value')
+                        time_slots = get_available_time_slots_for_day(time_from, duration_hour_slot)
+                elif time_slot is not None:
+                    time_from = time_slot.get('from', {}).get('value')
+                    time_to = time_slot.get('to', {}).get('value')
+                    time_slots = get_available_time_slots(time_from, time_to, duration_hour_slot)
                 return {"appointment_time": None, "suggested_times": time_slots}
         else:
             appointment_time = book_appointment(appointment_time_slot, duration_hour_slot, appointment_item_slot)

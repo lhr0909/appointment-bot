@@ -13,8 +13,7 @@ pendulum.set_locale('zh')
 WECOM_CORP_ID = os.environ.get('WECOM_CORP_ID')
 WECOM_CORP_SECRET = os.environ.get('WECOM_CORP_SECRET')
 
-access_token = "5ZQRXdOMUQNLxjNoJwXoMRUJS2M7tUeQXHutvZLGONfWr_v95HlpR6qNH9VqswUrCTVINDCuKEbLuT0OmGfnL8jokd4CnJcatuNf98grxXxCWQOACoLgd0fsnuDbpOnA7TOpO7EgGmsF88O_TR8YDOtulp-JlegAGTdb6IjPRwjMAfyD_un2o18fcuiVr09cX2VkY4tn7Q5fGd7zIUwTAA"
-# access_token = None
+access_token = None
 
 calendar_id = os.environ.get('WECOM_CALENDAR_ID')
 calendar_user_id = os.environ.get('WECOM_CALENDAR_USER_ID')
@@ -64,6 +63,27 @@ def get_available_time_slots(time_from, time_to, duration_hour):
 
     return result
 
+def get_available_time_slots_for_day(start_time, duration_hour):
+    get_all_calendar_schedules.cache_clear()
+
+    dt = pendulum.parse(start_time)
+    # start time is 11am
+    time_from = dt.add(hours=11-dt.hour)
+    # end time is 7pm
+    time_to = dt.add(hours=19-dt.hour)
+
+    period = pendulum.period(time_from, time_to)
+    result = []
+
+    for start in period.range('hours'):
+        end = start.add(hours=duration_hour)
+        time_slot_period = pendulum.period(start, end)
+        overlapped_schedules = get_schedules_that_overlaps(time_slot_period)
+        if len(overlapped_schedules) == 0:
+            result.append(start.format('LLL'))
+
+    return result
+
 def book_appointment(appointment_time_slot, duration_hour, appointment_item):
     start_time = pendulum.parse(appointment_time_slot)
     end_time = start_time.add(hours=duration_hour)
@@ -88,8 +108,9 @@ def get_overlap(period_a: pendulum.Period, period_b: pendulum.Period) -> Optiona
     """Returns the overlap between two periods."""
     start = max(period_a.start, period_b.start)
     end = min(period_a.end, period_b.end)
-    instant_overlap = period_a.start == period_b.start or start <= end
-    if instant_overlap or (start < end):
+    # instant_overlap = period_a.start == period_b.start or start <= end
+    # if instant_overlap or (start < end):
+    if start < end:
         return pendulum.period(start, end)
 
 if __name__ == '__main__':

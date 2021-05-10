@@ -20,4 +20,4 @@ actionserver:
 	pipenv run rasa run actions $(args)
 
 test:
-	pipenv run python -m actions.wecom
+	pipenv run python -m actions.calendar

@@ -5,7 +5,7 @@ from rasa_sdk import Tracker, FormValidationAction
 from rasa_sdk.executor import CollectingDispatcher
 from rasa_sdk.types import DomainDict
 
-from .calendar import get_available_schedules, convert_datetime_string
+from .calendar import get_available_time_slots, book_appointment
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ class ValidateBookForm(FormValidationAction):
         tracker: Tracker,
         domain: DomainDict,
     ) -> Dict[Text, Any]:
+        appointment_item_slot = tracker.slots.get("appointment_item")
         duration_hour_slot = tracker.slots.get("duration_hour")
         appointment_time_slot = tracker.slots.get("appointment_time")
         time_slot = tracker.slots.get("time")
@@ -63,10 +64,11 @@ class ValidateBookForm(FormValidationAction):
             else:
                 time_from = time_slot.get('from', {}).get('value')
                 time_to = time_slot.get('to', {}).get('value')
-                schedules = get_available_schedules(time_from, time_to, duration_hour_slot)
-                return {"appointment_time": None, "suggested_times": schedules}
+                time_slots = get_available_time_slots(time_from, time_to, duration_hour_slot)
+                return {"appointment_time": None, "suggested_times": time_slots}
         else:
-            return {"appointment_time": appointment_time_slot}
+            appointment_time = book_appointment(appointment_time_slot, duration_hour_slot, appointment_item_slot)
+            return {"appointment_time": appointment_time}
 
     async def extract_appointment_item(
         self, dispatcher: CollectingDispatcher, tracker: Tracker, domain: Dict
@@ -118,4 +120,4 @@ class ValidateBookForm(FormValidationAction):
         else:
             return {"time": time_entity, "appointment_time": None}
 
-        return {"time": None, "appointment_time": convert_datetime_string(appointment_time)}
+        return {"time": None, "appointment_time": appointment_time}

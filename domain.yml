@@ -54,7 +54,7 @@ responses:
   utter_greet:
   - text: 您好，我是智能助理小美，我可以帮您预约项目和时间哦~
   utter_duration:
-  - text: 项目大概需要{duration_hour}小时。
+  - text: "{appointment_item}项目大概需要{duration_hour}小时。"
   utter_ask_appointment_item:
   - text: 请问这次您想做什么项目呢？
   utter_suggest_appointment_item:

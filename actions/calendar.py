@@ -1,4 +1,7 @@
 import os
+import logging
+from functools import lru_cache
+from typing import Optional, List, Dict, Any, Text
 
 import pendulum
 
@@ -10,14 +13,18 @@ pendulum.set_locale('zh')
 WECOM_CORP_ID = os.environ.get('WECOM_CORP_ID')
 WECOM_CORP_SECRET = os.environ.get('WECOM_CORP_SECRET')
 
-access_token = "wtksmvFP7joN3MQvo2mqIDxs_A9fpUhly0nX18MrcvTnxaCCqVK9uAd7x4yeHC1wOCNs7dnGOF57NCowWlxqRTI7J70fH6-zZi-c7S4l4wEgBzxn2cNOxUi1UNAh9HUMhObpvbIvW5qt7y1Xy4NAo0qtZP7YrMinEgyabm6B7-o4C9rhOdYbz-vsfIIBJ2V-GhhCAUhJw5tn6FOTyrRZmg"
+access_token = "5ZQRXdOMUQNLxjNoJwXoMRUJS2M7tUeQXHutvZLGONfWr_v95HlpR6qNH9VqswUrCTVINDCuKEbLuT0OmGfnL8jokd4CnJcatuNf98grxXxCWQOACoLgd0fsnuDbpOnA7TOpO7EgGmsF88O_TR8YDOtulp-JlegAGTdb6IjPRwjMAfyD_un2o18fcuiVr09cX2VkY4tn7Q5fGd7zIUwTAA"
 # access_token = None
 
 calendar_id = os.environ.get('WECOM_CALENDAR_ID')
+calendar_user_id = os.environ.get('WECOM_CALENDAR_USER_ID')
+
+logger = logging.getLogger(__name__)
 
 client = WeChatClient(WECOM_CORP_ID, WECOM_CORP_SECRET, access_token=access_token)
 
-def get_all_calendar_schedules():
+@lru_cache(maxsize=10)
+def get_all_calendar_schedules() -> List[Dict[Text, Any]]:
     result = []
     offset = 0
     limit = 1000
@@ -28,18 +35,62 @@ def get_all_calendar_schedules():
         schedules = client.schedule.get_by_calendar(calendar_id, offset, limit)
     return result
 
-def get_schedules_within_times(time_from, time_to):
+def get_schedules_that_overlaps(period: pendulum.Period):
     all_schedules = get_all_calendar_schedules()
-    return list(filter(lambda x: x.get("start_time") >= time_from and x.get("end_time") <= time_to, all_schedules))
 
-def get_available_schedules(time_from, time_to, duration_hour):
-    dt_from = pendulum.parse(time_from)
-    dt_to = pendulum.parse(time_to)
-    period = pendulum.period(dt_from, dt_to)
-    return list(map(lambda dt: dt.format('LLL'), period.range('hours')))
+    result = []
+
+    for schedule in all_schedules:
+        start_time = schedule.get("start_time")
+        end_time = schedule.get("end_time")
+        schedule_period = pendulum.period(pendulum.from_timestamp(start_time), pendulum.from_timestamp(end_time))
+        if is_overlap(schedule_period, period):
+            result.append(schedule)
+
+    return result
+
+def get_available_time_slots(time_from, time_to, duration_hour):
+    get_all_calendar_schedules.cache_clear()
+
+    period = pendulum.period(pendulum.parse(time_from), pendulum.parse(time_to))
+    result = []
+
+    for start in period.range('hours'):
+        end = start.add(hours=duration_hour)
+        time_slot_period = pendulum.period(start, end)
+        overlapped_schedules = get_schedules_that_overlaps(time_slot_period)
+        if len(overlapped_schedules) == 0:
+            result.append(start.format('LLL'))
+
+    return result
+
+def book_appointment(appointment_time_slot, duration_hour, appointment_item):
+    start_time = pendulum.parse(appointment_time_slot)
+    end_time = start_time.add(hours=duration_hour)
+
+    period = pendulum.period(start_time, end_time)
+    overlapped_schedules = get_schedules_that_overlaps(period)
+    if len(overlapped_schedules) == 0:
+        response = client.schedule.add(calendar_user_id, int(start_time.timestamp()), int(end_time.timestamp()), summary=appointment_item, calendar_id=calendar_id)
+        logger.debug(response)
+        return convert_datetime_string(appointment_time_slot)
+    else:
+        return None
+
 
 def convert_datetime_string(time):
     return pendulum.parse(time).format('LLL')
+
+def is_overlap(period_a, period_b):
+    return get_overlap(period_a, period_b) is not None
+
+def get_overlap(period_a: pendulum.Period, period_b: pendulum.Period) -> Optional[pendulum.Period]:
+    """Returns the overlap between two periods."""
+    start = max(period_a.start, period_b.start)
+    end = min(period_a.end, period_b.end)
+    instant_overlap = period_a.start == period_b.start or start <= end
+    if instant_overlap or (start < end):
+        return pendulum.period(start, end)
 
 if __name__ == '__main__':
     response = client.fetch_access_token()

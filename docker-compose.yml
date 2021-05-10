@@ -6,20 +6,3 @@ services:
     restart: always
     ports:
       - 8000:8000
-  recognizers-service:
-    image: xanthoustech/recognizers-service:latest
-    restart: always
-    ports:
-      - 7000:7000
-  rasa-chinese-service:
-    # build: .
-    image: xanthoustech/rasa-chinese-service:latest
-    ports:
-      - 8001:8000
-    volumes:
-      - bert-cache:/tmp/cache
-    command: hfl/chinese-bert-wwm-ext
-
-volumes:
-  bert-cache:
-    driver: local

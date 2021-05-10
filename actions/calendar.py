@@ -118,5 +118,5 @@ if __name__ == '__main__':
     print(response['access_token'])
     # print(client.department.get())
     # print(client.user.list(1))
-    # print(client.calendar.add("simonl", "预约机器人测试日历", "#FF00FF", "测试用日历"))
+    # print(client.calendar.add(calendar_user_id, "预约机器人测试日历", "#FF00FF", "测试用日历"))
     # print(client.schedule.get_by_calendar(calendar_id, offset=0, limit=1000))

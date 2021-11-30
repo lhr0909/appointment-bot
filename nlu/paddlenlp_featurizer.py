@@ -180,6 +180,8 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
 
         self.tokenizer = model_tokenizer_dict[self.model_name].from_pretrained(self.model_weights)
         self.model = model_class_dict[self.model_name].from_pretrained(self.model_weights)
+        # set it to evaluation mode, to eliminate dropouts
+        self.model.eval()
 
         self.pad_token_id = self.model.pad_token_id
 
@@ -510,8 +512,6 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
             Sequence level representations from the language model.
         """
 
-        print("padded_token_ids", padded_token_ids)
-
         # https://github.com/PaddlePaddle/PaddleNLP/issues/1224
         attention_mask = [[[mask]] for mask in batch_attention_mask]
 
@@ -524,9 +524,6 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         sequence_hidden_states = model_outputs[0]
 
         sequence_hidden_states = sequence_hidden_states.numpy()
-
-        print(sequence_hidden_states.shape)
-        print(sequence_hidden_states)
 
         return sequence_hidden_states
 

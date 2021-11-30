@@ -537,8 +537,6 @@ class LanguageModelFeaturizer(DenseFeaturizer):
             Sequence level representations from the language model.
         """
 
-        print("padded_token_ids", padded_token_ids)
-
         model_outputs = self.model(
             np.array(padded_token_ids), attention_mask=np.array(batch_attention_mask)
         )
@@ -547,9 +545,6 @@ class LanguageModelFeaturizer(DenseFeaturizer):
         sequence_hidden_states = model_outputs[0]
 
         sequence_hidden_states = sequence_hidden_states.numpy()
-
-        print(sequence_hidden_states.shape)
-        print(sequence_hidden_states)
 
         return sequence_hidden_states
 

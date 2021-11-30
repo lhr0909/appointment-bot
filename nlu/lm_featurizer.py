@@ -3,7 +3,6 @@ import logging
 
 from typing import Any, Optional, Text, List, Type, Dict, Tuple
 
-import paddle
 import rasa.core.utils
 from rasa.nlu.config import RasaNLUModelConfig
 from rasa.nlu.components import Component, UnsupportedLanguageError
@@ -22,6 +21,7 @@ from rasa.nlu.constants import (
     NO_LENGTH_RESTRICTION,
     NUMBER_OF_SUB_TOKENS,
     TOKENS_NAMES,
+    LANGUAGE_MODEL_DOCS,
 )
 from rasa.shared.nlu.constants import (
     TEXT,
@@ -42,10 +42,9 @@ MAX_SEQUENCE_LENGTHS = {
 
 logger = logging.getLogger(__name__)
 
-paddle.disable_static()
 
-class PaddleNLPFeaturizer(DenseFeaturizer):
-    """Featurizer using PaddleNLP transformer-based language models.
+class LanguageModelFeaturizer(DenseFeaturizer):
+    """Featurizer using transformer-based language models.
 
     The transformers(https://github.com/huggingface/transformers) library
     is used to load pre-trained language models like BERT, GPT-2, etc.
@@ -57,9 +56,12 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         # name of the language model to load.
         "model_name": "bert",
         # Pre-Trained weights to be loaded(string)
-        "model_weights": "bert-wwm-ext-chinese",
-        "intent_tokenization_flag": False,
-        "intent_split_symbol": "_",
+        "model_weights": None,
+        # an optional path to a specific directory to download
+        # and cache the pre-trained model weights.
+        "cache_dir": None,
+        # set to true to use pytorch
+        "from_pt": False,
     }
 
     @classmethod
@@ -71,14 +73,19 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         self,
         component_config: Optional[Dict[Text, Any]] = None,
         skip_model_load: bool = False,
+        hf_transformers_loaded: bool = False,
     ) -> None:
-        """Initializes PaddelNLPFeaturizer with the specified model.
+        """Initializes LanguageModelFeaturizer with the specified model.
 
         Args:
             component_config: Configuration for the component.
             skip_model_load: Skip loading the model for pytests.
+            hf_transformers_loaded: Skip loading of model and metadata, use
+            HFTransformers output instead.
         """
-        super(PaddleNLPFeaturizer, self).__init__(component_config)
+        super(LanguageModelFeaturizer, self).__init__(component_config)
+        if hf_transformers_loaded:
+            return
         self._load_model_metadata()
         self._load_model_instance(skip_model_load)
 
@@ -90,7 +97,14 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         if not cls.can_handle_language(language):
             # check failed
             raise UnsupportedLanguageError(cls.name, language)
-        return cls(component_config)
+        # TODO: remove this when HFTransformersNLP is removed for good
+        if isinstance(config, Metadata):
+            hf_transformers_loaded = "HFTransformersNLP" in [
+                c["name"] for c in config.metadata["pipeline"]
+            ]
+        else:
+            hf_transformers_loaded = "HFTransformersNLP" in config.component_names
+        return cls(component_config, hf_transformers_loaded=hf_transformers_loaded)
 
     @classmethod
     def load(
@@ -124,6 +138,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         Returns:
                 the loaded component
         """
+        # TODO: remove this when HFTransformersNLP is removed for good
         if cached_component:
             return cached_component
 
@@ -135,7 +150,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         This includes the model name, model weights, cache directory and the
         maximum sequence length the model can handle.
         """
-        from .paddlenlp_registry import (
+        from rasa.nlu.utils.hugging_face.registry import (
             model_class_dict,
             model_weights_defaults,
         )
@@ -150,6 +165,8 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
             )
 
         self.model_weights = self.component_config["model_weights"]
+        self.cache_dir = self.component_config["cache_dir"]
+        self.from_pt = self.component_config["from_pt"]
 
         if not self.model_weights:
             logger.info(
@@ -171,17 +188,27 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
             # This should be True only during pytests
             return
 
-        from .paddlenlp_registry import (
+        from rasa.nlu.utils.hugging_face.registry import (
             model_class_dict,
             model_tokenizer_dict,
         )
 
         logger.debug(f"Loading Tokenizer and Model for {self.model_name}")
 
-        self.tokenizer = model_tokenizer_dict[self.model_name].from_pretrained(self.model_weights)
-        self.model = model_class_dict[self.model_name].from_pretrained(self.model_weights)
+        self.tokenizer = model_tokenizer_dict[self.model_name].from_pretrained(
+            self.model_weights, cache_dir=self.cache_dir, from_pt=self.from_pt
+        )
+        self.model = model_class_dict[self.model_name].from_pretrained(
+            self.model_weights, cache_dir=self.cache_dir, from_pt=self.from_pt
+        )
 
-        self.pad_token_id = self.model.pad_token_id
+        # Use a universal pad token since all transformer architectures do not have a
+        # consistent token. Instead of pad_token_id we use unk_token_id because
+        # pad_token_id is not set for all architectures. We can't add a new token as
+        # well since vocabulary resizing is not yet supported for TF classes.
+        # Also, this does not hurt the model predictions since we use an attention mask
+        # while feeding input.
+        self.pad_token_id = self.tokenizer.unk_token_id
 
     @classmethod
     def cache_key(
@@ -205,7 +232,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
     @classmethod
     def required_packages(cls) -> List[Text]:
         """Packages needed to be installed."""
-        return ["paddlenlp", "paddle"]
+        return ["transformers"]
 
     def _lm_tokenize(self, text: Text) -> Tuple[List[int], List[Text]]:
         """Pass the text through the tokenizer of the language model.
@@ -215,11 +242,11 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
 
         Returns: List of token ids and token strings.
         """
-        split_token_ids = self.tokenizer.encode(text)['input_ids']
+        split_token_ids = self.tokenizer.encode(text, add_special_tokens=False)
 
         split_token_strings = self.tokenizer.convert_ids_to_tokens(split_token_ids)
 
-        return split_token_ids[1:len(split_token_ids) - 1], split_token_strings[1:len(split_token_strings) - 1]
+        return split_token_ids, split_token_strings
 
     def _add_lm_specific_special_tokens(
         self, token_ids: List[List[int]]
@@ -232,7 +259,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
 
         Returns: Augmented list of token ids for each example in the batch.
         """
-        from .paddlenlp_registry import (
+        from rasa.nlu.utils.hugging_face.registry import (
             model_special_tokens_pre_processors,
         )
 
@@ -259,7 +286,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
 
         Returns: Cleaned up token ids and token strings.
         """
-        from .paddlenlp_registry import model_tokens_cleaners
+        from rasa.nlu.utils.hugging_face.registry import model_tokens_cleaners
 
         return model_tokens_cleaners[self.model_name](split_token_ids, token_strings)
 
@@ -274,7 +301,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
 
         Returns: Sentence and sequence level representations.
         """
-        from .paddlenlp_registry import (
+        from rasa.nlu.utils.hugging_face.registry import (
             model_embeddings_post_processors,
         )
 
@@ -371,7 +398,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
     @staticmethod
     def _compute_attention_mask(
         actual_sequence_lengths: List[int], max_input_sequence_length: int
-    ) -> List[List[int]]:
+    ) -> np.ndarray:
         """Compute a mask for padding tokens.
 
         This mask will be used by the language model so that it does not attend to
@@ -403,7 +430,7 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
             )
             attention_mask.append(padded_sequence)
 
-        # attention_mask = np.array(attention_mask).astype(np.float32)
+        attention_mask = np.array(attention_mask).astype(np.float32)
         return attention_mask
 
     def _extract_sequence_lengths(
@@ -496,13 +523,13 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         return np.array(nonpadded_sequence_embeddings)
 
     def _compute_batch_sequence_features(
-        self,
-        padded_token_ids: List[List[int]],
-        batch_attention_mask: List[List[int]],
+        self, batch_attention_mask: np.ndarray, padded_token_ids: List[List[int]]
     ) -> np.ndarray:
         """Feed the padded batch to the language model.
 
         Args:
+            batch_attention_mask: Mask of 0s and 1s which indicate whether the token
+            is a padding token or not.
             padded_token_ids: Batch of token ids for each example. The batch is padded
             and hence can be fed at once.
 
@@ -512,12 +539,8 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
 
         print("padded_token_ids", padded_token_ids)
 
-        # https://github.com/PaddlePaddle/PaddleNLP/issues/1224
-        attention_mask = [[[mask]] for mask in batch_attention_mask]
-
         model_outputs = self.model(
-            input_ids=paddle.to_tensor(padded_token_ids),
-            attention_mask=paddle.to_tensor(attention_mask),
+            np.array(padded_token_ids), attention_mask=np.array(batch_attention_mask)
         )
 
         # sequence hidden states is always the first output from all models
@@ -640,7 +663,6 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         Returns:
             Sentence and token level dense representations.
         """
-
         # Let's first add tokenizer specific special tokens to all examples
         batch_token_ids_augmented = self._add_lm_specific_special_tokens(
             batch_token_ids
@@ -664,15 +686,13 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         )
 
         # Compute attention mask based on actual_sequence_length
-        # (it is not needed for paddle because we are using the pad_token_id from model directly)
         batch_attention_mask = self._compute_attention_mask(
             actual_sequence_lengths, max_input_sequence_length
         )
 
         # Get token level features from the model
         sequence_hidden_states = self._compute_batch_sequence_features(
-            padded_token_ids,
-            batch_attention_mask,
+            batch_attention_mask, padded_token_ids
         )
 
         # Extract features for only non-padding tokens
@@ -733,6 +753,19 @@ class PaddleNLPFeaturizer(DenseFeaturizer):
         Returns:
             List of language model docs for each message in batch.
         """
+        hf_transformers_doc = batch_examples[0].get(LANGUAGE_MODEL_DOCS[attribute])
+        if hf_transformers_doc:
+            # This should only be the case if the deprecated
+            # HFTransformersNLP component is used in the pipeline
+            # TODO: remove this when HFTransformersNLP is removed for good
+            logging.debug(
+                f"'{LANGUAGE_MODEL_DOCS[attribute]}' set: this "
+                f"indicates you're using the deprecated component "
+                f"HFTransformersNLP, please remove it from your "
+                f"pipeline."
+            )
+            return [ex.get(LANGUAGE_MODEL_DOCS[attribute]) for ex in batch_examples]
+
         batch_tokens, batch_token_ids = self._get_token_ids_for_batch(
             batch_examples, attribute
         )

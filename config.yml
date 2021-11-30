@@ -1,16 +1,31 @@
 language: zh
 
 pipeline:
-  - name: "nlu.paddlenlp_tokenizer.PaddleNLPTokenizer"
-    model_name: bert
-    model_weights: bert-wwm-chinese
+  # - name: "nlu.paddlenlp_tokenizer.PaddleNLPTokenizer"
+  #   model_name: bert
+  #   model_weights: bert-wwm-ext-chinese
+  #   # Flag to check whether to split intents
+  #   intent_tokenization_flag: false
+  #   # Symbol on which intent should be split
+  #   intent_split_symbol: "_"
+  # - name: "nlu.paddlenlp_featurizer.PaddleNLPFeaturizer"
+  #   model_name: bert
+  #   model_weights: bert-wwm-ext-chinese
+  - name: "rasa_chinese.nlu.tokenizers.lm_tokenizer.LanguageModelTokenizer"
+    tokenizer_url: http://localhost:8001
     # Flag to check whether to split intents
     intent_tokenization_flag: false
     # Symbol on which intent should be split
     intent_split_symbol: "_"
-  - name: "nlu.paddlenlp_featurizer.PaddleNLPFeaturizer"
-    model_name: bert
-    model_weights: bert-wwm-chinese
+  - name: "nlu.lm_featurizer.LanguageModelFeaturizer"
+    model_name: "bert"
+    # model_weights: "bert-base-chinese"
+    # model_weights: "./bert-models/chinese_wwm_ext_pytorch"
+    model_weights: hfl/chinese-bert-wwm-ext
+    from_pt: true
+    cache_dir: "./cache"
+  - name: "nlu.recognizers_service_extractor.RecognizersServiceEntityExtractor"
+    culture: 'zh-cn'
   - name: "DucklingEntityExtractor"
     locale: "zh_CN"
     timezone: "Asia/Shanghai"
